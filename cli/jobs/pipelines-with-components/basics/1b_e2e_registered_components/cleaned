@@ -1,0 +1,148 @@
+# ==============================
+# Complete Pipeline: Strict Cleaning, Classification, Clustering
+# ==============================
+
+# 1. Εισαγωγή βιβλιοθηκών
+import pandas as pd
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+# ==============================
+# 2. Φόρτωση δεδομένων
+# ==============================
+q1 = pd.read_csv('Q1.csv')
+q2 = pd.read_csv('Q2.csv')
+q3 = pd.read_csv('Q3.csv')
+
+print("✅ Φορτώθηκαν κανονικά!")
+print(q1.shape, q2.shape, q3.shape)
+
+# Προσθήκη στήλης quarter
+q1['quarter'] = 'Q1'
+q2['quarter'] = 'Q2'
+q3['quarter'] = 'Q3'
+
+# ==============================
+# 3. Αφαίρεση duplicates
+# ==============================
+q1 = q1.drop_duplicates()
+q2 = q2.drop_duplicates()
+q3 = q3.drop_duplicates()
+
+# Αφαίρεση πελατών με εισόδημα > 500.000
+before_count = data.shape[0]
+data = data[data['income'] <= 500000]
+after_count = data.shape[0]
+
+print(f"Αφαιρέθηκαν {before_count - after_count} πελάτες με εισόδημα > 190K")
+print(f"Υπόλοιποι πελάτες: {after_count}")
+
+# Επισκόπηση returning / non-returning
+return_counts = data['is_returning'].value_counts()
+print(return_counts)
+
+# Μέτρηση returning vs non-returning
+return_counts = data['is_returning'].value_counts()
+print(return_counts)
+
+# Αν θέλεις μόνο πόσοι έχουν μείνει (is_returning = 1)
+print("Πελάτες που έχουν μείνει:", return_counts.get(1, 0))
+
+
+# ==============================
+# 4. Συγχώνευση datasets
+# ==============================
+data = pd.concat([q1, q2, q3], ignore_index=True)
+print("Σχήμα μετά το concat:", data.shape)
+
+# ==============================
+# 5. Καθαρισμός δεδομένων
+# ==============================
+
+# 5a. Συμπλήρωση Missing Values
+data['income'].fillna(data['income'].median(), inplace=True)
+for col in ['quantity', 'spend_amount', 'age']:
+    if col in data.columns:
+        data[col].fillna(data[col].median(), inplace=True)
+
+# 5b. Αφαίρεση Outliers (strict Z-score < 3)
+z_cols = ['spend_amount', 'quantity', 'income', 'age']
+for col in z_cols:
+    if col in data.columns:
+        data = data[(np.abs(stats.zscore(data[col])) < 3)]
+
+# 5c. Τυποποίηση κατηγοριών
+if 'gender' in data.columns:
+    data['gender'] = data['gender'].str.lower().replace({'f':'female','m':'male'})
+
+# 5d. Κανονικοποίηση Boolean Target
+if 'is_returning' in data.columns:
+    data['is_returning'] = data['is_returning'].replace({'yes': True, 'no': False, 'True': True, 'False': False})
+    data = data.dropna(subset=['is_returning'])
+    data['is_returning'] = data['is_returning'].astype(bool).astype(int)
+
+# 5e. Standardize date
+if 'purchase_date' in data.columns:
+    data['purchase_date'] = pd.to_datetime(data['purchase_date'], errors='coerce')
+
+# ==============================
+# 6. Features & Target
+# ==============================
+features = ['age','income','spend_amount','quantity']
+X = data[features].copy()
+y = data['is_returning'].copy()
+
+# Συμπλήρωση τυχόν NaN
+X = X.fillna(X.median())
+
+# ==============================
+# 7. Train/Test Split + RandomForest
+# ==============================
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+clf = RandomForestClassifier(random_state=42)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+
+print("✅ RandomForest Accuracy:", accuracy_score(y_test, y_pred))
+
+# ==============================
+# 8. Clustering (KMeans)
+# ==============================
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+kmeans = KMeans(n_clusters=4, random_state=42)
+data['segment'] = kmeans.fit_predict(X_scaled)
+
+# ==============================
+# 9. Visualization με matplotlib
+# ==============================
+plt.figure(figsize=(10,7))
+scatter = plt.scatter(data['income'], data['spend_amount'], c=data['segment'], cmap='Set2', s=50)
+plt.xlabel('Income')
+plt.ylabel('Spend Amount')
+plt.title('Customer Segments')
+plt.colorbar(scatter, label='Segment')
+plt.show()
+
+# ==============================
+# 10. Logging & Export
+# ==============================
+print("✅ Data cleaning & clustering complete.")
+print("Columns now:", data.columns.tolist())
+print("Sample of cleaned & clustered data:")
+print(data.head())
+
+# Export cleaned dataset
+data.to_csv("cleaned_clustered_data.csv", index=False)
+print("✅ Cleaned and clustered data exported to 'cleaned_clustered_data.csv'")
+
+
